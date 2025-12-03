@@ -33,7 +33,7 @@ jobs:
 
       - name: Authenticate with Service Account (manual)
         run: |
-          echo "${{ secrets.GCP_SA_KEY }}" > key.json
+          echo '${{ secrets.GCP_SA_KEY }}' > key.json
           gcloud auth activate-service-account --key-file=key.json
           gcloud config set project $PROJECT_ID
 
