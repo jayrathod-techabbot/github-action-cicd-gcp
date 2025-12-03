@@ -37,11 +37,13 @@ jobs:
           gcloud auth activate-service-account --key-file=key.json
           gcloud config set project $PROJECT_ID
 
-      - name: Install GKE Auth Plugin
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y google-cloud-sdk-gke-gcloud-auth-plugin
-          
+      - name: Set up Cloud SDK with GKE Auth Plugin
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          project_id: ${{ secrets.PROJECT_ID }}
+          install_components: gke-gcloud-auth-plugin
+
+
       - name: Configure Docker for Artifact Registry
         run: |
           gcloud auth configure-docker us-east1-docker.pkg.dev --quiet
