@@ -1,18 +1,18 @@
 name: CI/CD Deployment to GKE
 
 on:
-    push:
-        branches:
-            - main
+  push:
+    branches:
+      - main
 
 env:
-    PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-    GKE_CLUSTER: "my-k8s-cluster-v2"
-    GKE_REGION: "us-east1"
-    DEPLOYMENT_NAME: "mlops-app"
-    REPOSITORY: "us-east1-docker.pkg.dev/mlops-project-3-12/my-repo-cicd"
-    IMAGE: "us-east1-docker.pkg.dev/mlops-project-3-12/my-repo-cicd/mlops-app"
-    
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GKE_CLUSTER: "my-k8s-cluster-v2"
+  GKE_REGION: "us-east1"
+  DEPLOYMENT_NAME: "mlops-app"
+  REPOSITORY: "us-east1-docker.pkg.dev/mlops-project-3-12/my-repo-cicd"
+  IMAGE: "us-east1-docker.pkg.dev/mlops-project-3-12/my-repo-cicd/mlops-app"
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -21,29 +21,44 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v2
 
-      - name: Authenticate with Google Cloud
-        uses: google-github-actions/auth@v1
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      #############################################################
+      # 🔹 Install & Configure gcloud (Your requested block)
+      #############################################################
+      - name: Download & Install gcloud CLI
+        run: |
+          curl -L https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-548.0.0-linux-x86_64.tar.gz -o gcloud.tar.gz
+          tar -xf gcloud.tar.gz
+          ./google-cloud-sdk/install.sh --quiet
+          echo "PATH=$PATH:${{ github.workspace }}/google-cloud-sdk/bin" >> $GITHUB_ENV
 
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v1
-        with:
-          project_id: ${{ secrets.PROJECT_ID }}
+      - name: Authenticate with Service Account (manual)
+        run: |
+          echo "${{ secrets.GCP_SA_KEY }}" | base64 -d > key.json
+          gcloud auth activate-service-account --key-file=key.json
+          gcloud config set project $PROJECT_ID
 
       - name: Configure Docker for Artifact Registry
         run: |
-          gcloud auth configure-docker us-east1-docker.pkg.dev
+          gcloud auth configure-docker us-east1-docker.pkg.dev --quiet
 
+      #############################################################
+      # 🔹 Docker Build + Push
+      #############################################################
       - name: Build and Push Docker Image
         run: |
           docker build -t $IMAGE:$GITHUB_SHA .
           docker push $IMAGE:$GITHUB_SHA
 
+      #############################################################
+      # 🔹 Connect to GKE Cluster
+      #############################################################
       - name: Connect to GKE
         run: |
           gcloud container clusters get-credentials $GKE_CLUSTER --region $GKE_REGION
 
+      #############################################################
+      # 🔹 Deploy to Kubernetes
+      #############################################################
       - name: Deploy to Kubernetes
         run: |
           kubectl apply -f kubernetes-deployment.yaml
